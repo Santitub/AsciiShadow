@@ -314,38 +314,54 @@ shadow_font = {
 }
 
 import argparse
+import subprocess
+import sys
 
 def text_to_shadow(text):
-    # Añadir espacio adicional entre caracteres para mejor alineación
     lines = [''] * 6
     for char in text.upper():
         if char in shadow_font:
             char_lines = shadow_font[char]
             max_width = max(len(line) for line in char_lines)
-            
-            # Asegurar que todas las líneas tengan el mismo ancho
             padded_lines = [line.ljust(max_width) for line in char_lines]
-            
             for i in range(6):
-                lines[i] += padded_lines[i] + '  '  # Espacio uniforme
+                lines[i] += padded_lines[i] + '  '
         else:
-            # Insertar espacio equivalente para caracteres no definidos
             for i in range(6):
-                lines[i] += ' ' * 8 + '  '  # 8 espacios base + 2 de separación
-    
-    # Eliminar espacios extra al final de cada línea
+                lines[i] += ' ' * 8 + '  '
     return '\n'.join([line.rstrip() for line in lines])
 
+def check_xclip_installed():
+    try:
+        subprocess.run(['which', 'xclip'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
 def main():
-    # Crear el parser para los argumentos de la terminal
-    parser = argparse.ArgumentParser(description="Generar texto en formato sombra.")
-    parser.add_argument("texto", type=str, help="El texto que se mostrará en formato sombra")
-    
-    # Parsear los argumentos
+    parser = argparse.ArgumentParser(description="Generar texto en formato sombra y copiarlo al portapapeles.")
+    parser.add_argument("texto", type=str, help="El texto a convertir y copiar")
     args = parser.parse_args()
     
-    # Llamar a la función y mostrar el resultado
-    print(text_to_shadow(args.texto))
+    if not check_xclip_installed():
+        print("Error: xclip no está instalado. Instálalo con el comando:\n  sudo apt install xclip", file=sys.stderr)
+        sys.exit(1)
+    
+    shadow_text = text_to_shadow(args.texto)
+    
+    try:
+        subprocess.run(
+            ['xclip', '-selection', 'clipboard'],
+            input=shadow_text,
+            text=True,
+            check=True
+        )
+        print("Texto copiado al portapapeles correctamente.", file=sys.stderr)
+    except subprocess.CalledProcessError as e:
+        print(f"Error al copiar al portapapeles: {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    print(shadow_text)
 
 if __name__ == "__main__":
     main()
